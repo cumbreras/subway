@@ -14,4 +14,4 @@ Not ready yet, but you can run the project with `go run main.go -env=XXX` or jus
 
 # Flags
 - [x] environment flag i.e. `-env=staging`
-- [] subscription flag i.e. `-subscription=payment-created`
+- [ ] subscription flag i.e. `-subscription=payment-created`
