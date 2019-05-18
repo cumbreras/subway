@@ -13,5 +13,5 @@ Go 1.1/1.2, GoogleCloud JSON Auth file and the name of the project that you are 
 Not ready yet, but you can run the project with `go run main.go -env=XXX` or just build the project and run it normally.
 
 # Flags
-- [] environment flag i.e. `-env=staging`
+- [x] environment flag i.e. `-env=staging`
 - [] subscription flag i.e. `-subscription=payment-created`
