@@ -14,21 +14,23 @@ import (
 
 // Subway client for fetching GCP PubSub Events
 type Subway struct {
-	env    string
-	client *pubsub.Client
+	env      string
+	client   *pubsub.Client
+	messages chan<- Message
 }
 
 type Message struct {
-	data             []byte
-	subscriptionName string
+	Data             []byte
+	SubscriptionName string
 }
 
-func (m Message) render() {
-	fmt.Printf("Message received for %s:\n %s\n", m.subscriptionName, string(m.data))
+// Render will print to the stdout the message
+func (m Message) Render() {
+	fmt.Printf("Message received for %s:\n %s\n", m.SubscriptionName, string(m.Data))
 }
 
 // New returns the Subway Client
-func New(env string) Subway {
+func New(env string, messages chan<- Message) Subway {
 	ctx := context.Background()
 	proj := os.Getenv("GOOGLE_CLOUD_PROJECT")
 
@@ -43,7 +45,7 @@ func New(env string) Subway {
 		log.Fatal(err)
 	}
 
-	return Subway{client: client, env: env}
+	return Subway{client: client, env: env, messages: messages}
 }
 
 // Start will read subscriptions and pull the events payload to the stdout
@@ -58,14 +60,8 @@ func (s Subway) Start() {
 }
 
 func (s Subway) eventsFromSubscriptions(subscriptions []*pubsub.Subscription) {
-	messages := make(chan Message)
-
 	for _, sub := range subscriptions {
-		go s.pullMessages(sub.ID(), messages)
-	}
-
-	for msg := range messages {
-		msg.render()
+		go s.pullMessages(sub.ID(), s.messages)
 	}
 }
 
@@ -95,14 +91,14 @@ func (s Subway) listSubscriptionsFromEnvironment() ([]*pubsub.Subscription, erro
 	return subs, nil
 }
 
-func (s Subway) pullMessages(subscriptionName string, messages chan<- Message) {
+func (s Subway) pullMessages(SubscriptionName string, messages chan<- Message) {
 	ctx := context.Background()
 	var mu sync.Mutex
-	sub := s.client.Subscription(subscriptionName)
+	sub := s.client.Subscription(SubscriptionName)
 	cctx, _ := context.WithCancel(ctx)
 	err := sub.Receive(cctx, func(ctx context.Context, msg *pubsub.Message) {
 		mu.Lock()
-		messages <- Message{subscriptionName: sub.ID(), data: msg.Data}
+		messages <- Message{SubscriptionName: sub.ID(), Data: msg.Data}
 		defer mu.Unlock()
 	})
 
