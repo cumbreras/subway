@@ -18,6 +18,15 @@ type Subway struct {
 	client *pubsub.Client
 }
 
+type Message struct {
+	data             []byte
+	subscriptionName string
+}
+
+func (m Message) render() {
+	fmt.Printf("Message received for %s:\n %s\n", m.subscriptionName, string(m.data))
+}
+
 // New returns the Subway Client
 func New(env string) Subway {
 	ctx := context.Background()
@@ -49,19 +58,19 @@ func (s Subway) Start() {
 }
 
 func (s Subway) eventsFromSubscriptions(subscriptions []*pubsub.Subscription) {
-	messages := make(chan []byte)
+	messages := make(chan Message)
 
 	for _, sub := range subscriptions {
 		go s.pullMessages(sub.ID(), messages)
 	}
 
 	for msg := range messages {
-		fmt.Printf("Event received:\n %s\n", string(msg))
+		msg.render()
 	}
 }
 
 func (s Subway) listSubscriptionsFromEnvironment() ([]*pubsub.Subscription, error) {
-	fmt.Println("Listing all subscriptions from the project:")
+	fmt.Printf("Listing subscription for %s environment:\n", s.env)
 	ctx := context.Background()
 	var subs []*pubsub.Subscription
 	it := s.client.Subscriptions(ctx)
@@ -86,14 +95,14 @@ func (s Subway) listSubscriptionsFromEnvironment() ([]*pubsub.Subscription, erro
 	return subs, nil
 }
 
-func (s Subway) pullMessages(subscriptionName string, messages chan<- []byte) {
+func (s Subway) pullMessages(subscriptionName string, messages chan<- Message) {
 	ctx := context.Background()
 	var mu sync.Mutex
 	sub := s.client.Subscription(subscriptionName)
 	cctx, _ := context.WithCancel(ctx)
 	err := sub.Receive(cctx, func(ctx context.Context, msg *pubsub.Message) {
 		mu.Lock()
-		messages <- msg.Data
+		messages <- Message{subscriptionName: sub.ID(), data: msg.Data}
 		defer mu.Unlock()
 	})
 
