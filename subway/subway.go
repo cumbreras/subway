@@ -49,14 +49,14 @@ func (s Subway) Start() {
 }
 
 func (s Subway) eventsFromSubscriptions(subscriptions []*pubsub.Subscription) {
-	events := make(chan []byte)
+	messages := make(chan []byte)
 
 	for _, sub := range subscriptions {
-		go s.readEvents(sub.ID(), events)
+		go s.pullMessages(sub.ID(), messages)
 	}
 
-	for e := range events {
-		fmt.Printf("Event received:\n %s\n", string(e))
+	for msg := range messages {
+		fmt.Printf("Event received:\n %s\n", string(msg))
 	}
 }
 
@@ -86,14 +86,14 @@ func (s Subway) listSubscriptionsFromEnvironment() ([]*pubsub.Subscription, erro
 	return subs, nil
 }
 
-func (s Subway) readEvents(subscriptionName string, events chan<- []byte) {
+func (s Subway) pullMessages(subscriptionName string, messages chan<- []byte) {
 	ctx := context.Background()
 	var mu sync.Mutex
 	sub := s.client.Subscription(subscriptionName)
 	cctx, _ := context.WithCancel(ctx)
 	err := sub.Receive(cctx, func(ctx context.Context, msg *pubsub.Message) {
 		mu.Lock()
-		events <- msg.Data
+		messages <- msg.Data
 		defer mu.Unlock()
 	})
 
