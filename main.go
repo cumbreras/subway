@@ -10,5 +10,4 @@ func main() {
 	flag.Parse()
 	pc := pubsubclient.NewPubSubClient(*env)
 	pc.Start()
-
 }
