@@ -1,4 +1,4 @@
-package pubsubclient
+package subway
 
 import (
 	"context"
@@ -12,14 +12,14 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-// PubSubClient allowing to trigger fetch
-type PubSubClient struct {
+// Subway client for fetching GCP PubSub Events
+type Subway struct {
 	env    string
 	client *pubsub.Client
 }
 
-// NewPubSubClient returns the client
-func NewPubSubClient(env string) PubSubClient {
+// New returns the Subway Client
+func New(env string) Subway {
 	ctx := context.Background()
 	proj := os.Getenv("GOOGLE_CLOUD_PROJECT")
 
@@ -34,23 +34,25 @@ func NewPubSubClient(env string) PubSubClient {
 		log.Fatal(err)
 	}
 
-	return PubSubClient{client: client, env: env}
+	return Subway{client: client, env: env}
 }
 
 // Start will read subscriptions and pull the events payload to the stdout
-func (pc *PubSubClient) Start() {
-	subs, err := pc.listSubscriptionsFromEnvironment()
+func (s Subway) Start() {
+	subs, err := s.listSubscriptionsFromEnvironment()
+
 	if err != nil {
 		log.Fatal(err)
 	}
-	pc.printEventsFromSubscriptions(subs)
+
+	s.eventsFromSubscriptions(subs)
 }
 
-func (pc *PubSubClient) printEventsFromSubscriptions(subscriptions []*pubsub.Subscription) {
+func (s Subway) eventsFromSubscriptions(subscriptions []*pubsub.Subscription) {
 	events := make(chan []byte)
 
 	for _, sub := range subscriptions {
-		go pc.readEvents(sub.ID(), events)
+		go s.readEvents(sub.ID(), events)
 	}
 
 	for e := range events {
@@ -58,14 +60,14 @@ func (pc *PubSubClient) printEventsFromSubscriptions(subscriptions []*pubsub.Sub
 	}
 }
 
-func (pc *PubSubClient) listSubscriptionsFromEnvironment() ([]*pubsub.Subscription, error) {
+func (s Subway) listSubscriptionsFromEnvironment() ([]*pubsub.Subscription, error) {
 	fmt.Println("Listing all subscriptions from the project:")
 	ctx := context.Background()
 	var subs []*pubsub.Subscription
-	it := pc.client.Subscriptions(ctx)
+	it := s.client.Subscriptions(ctx)
 
 	for {
-		s, err := it.Next()
+		sub, err := it.Next()
 
 		if err == iterator.Done {
 			break
@@ -75,19 +77,19 @@ func (pc *PubSubClient) listSubscriptionsFromEnvironment() ([]*pubsub.Subscripti
 			return nil, err
 		}
 
-		if strings.Contains(s.ID(), pc.env) {
-			fmt.Printf("subscription found %s\n", s.ID())
-			subs = append(subs, s)
+		if strings.Contains(sub.ID(), s.env) {
+			fmt.Printf("subscription found %s\n", sub.ID())
+			subs = append(subs, sub)
 		}
 	}
 
 	return subs, nil
 }
 
-func (pc *PubSubClient) readEvents(subscriptionName string, events chan<- []byte) {
+func (s Subway) readEvents(subscriptionName string, events chan<- []byte) {
 	ctx := context.Background()
 	var mu sync.Mutex
-	sub := pc.client.Subscription(subscriptionName)
+	sub := s.client.Subscription(subscriptionName)
 	cctx, _ := context.WithCancel(ctx)
 	err := sub.Receive(cctx, func(ctx context.Context, msg *pubsub.Message) {
 		mu.Lock()

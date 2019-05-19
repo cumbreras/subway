@@ -1,4 +1,4 @@
-module github.com/cumbreras/subway/pubsubclient
+module github.com/cumbreras/subway/subway
 
 require (
 	cloud.google.com/go v0.39.0
