@@ -18,6 +18,25 @@ type PubSubClient struct {
 	client *pubsub.Client
 }
 
+// NewPubSubClient returns the client
+func NewPubSubClient(env string) PubSubClient {
+	ctx := context.Background()
+	proj := os.Getenv("GOOGLE_CLOUD_PROJECT")
+
+	if proj == "" {
+		fmt.Fprintf(os.Stderr, "GOOGLE_CLOUD_PROJECT environment variable must be set.\n")
+		os.Exit(1)
+	}
+
+	client, err := pubsub.NewClient(ctx, proj)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return PubSubClient{client: client, env: env}
+}
+
 // Start will read subscriptions and pull the events payload to the stdout
 func (pc *PubSubClient) Start() {
 	subs, err := pc.listSubscriptionsFromEnvironment()
@@ -37,25 +56,6 @@ func (pc *PubSubClient) printEventsFromSubscriptions(subscriptions []*pubsub.Sub
 	for e := range events {
 		fmt.Printf("Event received:\n %s\n", string(e))
 	}
-}
-
-// NewPubSubClient returns the client
-func NewPubSubClient(env string) PubSubClient {
-	ctx := context.Background()
-	proj := os.Getenv("GOOGLE_CLOUD_PROJECT")
-
-	if proj == "" {
-		fmt.Fprintf(os.Stderr, "GOOGLE_CLOUD_PROJECT environment variable must be set.\n")
-		os.Exit(1)
-	}
-
-	client, err := pubsub.NewClient(ctx, proj)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return PubSubClient{client: client, env: env}
 }
 
 func (pc *PubSubClient) listSubscriptionsFromEnvironment() ([]*pubsub.Subscription, error) {
