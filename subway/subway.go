@@ -14,9 +14,7 @@ import (
 
 // Subway client for fetching GCP PubSub Events
 type Subway struct {
-	env      string
-	client   *pubsub.Client
-	messages chan<- Message
+	client *pubsub.Client
 }
 
 type Message struct {
@@ -30,7 +28,7 @@ func (m Message) Render() {
 }
 
 // New returns the Subway Client
-func New(env string, messages chan<- Message) Subway {
+func New() Subway {
 	ctx := context.Background()
 	proj := os.Getenv("GOOGLE_CLOUD_PROJECT")
 
@@ -45,28 +43,15 @@ func New(env string, messages chan<- Message) Subway {
 		log.Fatal(err)
 	}
 
-	return Subway{client: client, env: env, messages: messages}
+	return Subway{client: client}
 }
 
-// Start will read subscriptions and pull the events payload to the stdout
-func (s Subway) Start() {
-	subs, err := s.listSubscriptionsFromEnvironment()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	s.eventsFromSubscriptions(subs)
+func (s Subway) MessagesFromSubscription(subscription string, messages chan<- Message) {
+	go s.pullMessages(subscription, messages)
 }
 
-func (s Subway) eventsFromSubscriptions(subscriptions []*pubsub.Subscription) {
-	for _, sub := range subscriptions {
-		go s.pullMessages(sub.ID(), s.messages)
-	}
-}
-
-func (s Subway) listSubscriptionsFromEnvironment() ([]*pubsub.Subscription, error) {
-	fmt.Printf("Listing subscription for %s environment:\n", s.env)
+// ListSubscriptionsFromEnvironment will return all subscriptions available for a particular ENV
+func (s Subway) ListSubscriptionsFromEnvironment() ([]*pubsub.Subscription, error) {
 	ctx := context.Background()
 	var subs []*pubsub.Subscription
 	it := s.client.Subscriptions(ctx)
@@ -82,7 +67,7 @@ func (s Subway) listSubscriptionsFromEnvironment() ([]*pubsub.Subscription, erro
 			return nil, err
 		}
 
-		if strings.Contains(sub.ID(), s.env) {
+		if strings.Contains(sub.ID(), "staging") {
 			fmt.Printf("subscription found %s\n", sub.ID())
 			subs = append(subs, sub)
 		}

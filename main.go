@@ -2,10 +2,12 @@ package main
 
 import (
 	"flag"
-	"github.com/cumbreras/subway/subway"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+
+	"github.com/cumbreras/subway/subway"
 
 	"github.com/gorilla/websocket"
 )
@@ -14,12 +16,14 @@ var addr = flag.String("addr", "localhost:1337", "http service address")
 
 var upgrader = websocket.Upgrader{}
 
-func subs(env string, messages chan<- subway.Message) {
-	s := subway.New(env, messages)
-	s.Start()
-}
-
 func events(w http.ResponseWriter, r *http.Request) {
+	s := subway.New()
+	subs, err := s.ListSubscriptionsFromEnvironment()
+
+	for sub, _ := range subs {
+		fmt.Printf("%s", sub)
+	}
+
 	messages := make(chan subway.Message)
 
 	c, err := upgrader.Upgrade(w, r, nil)
@@ -30,12 +34,13 @@ func events(w http.ResponseWriter, r *http.Request) {
 
 	defer c.Close()
 	for {
-		mt, message, err := c.ReadMessage()
+		mt, subscription, err := c.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			break
 		}
-		go subs(string(message), messages)
+
+		go s.MessagesFromSubscription(string(subscription), messages)
 
 		for msg := range messages {
 			msg.Render()
@@ -46,7 +51,7 @@ func events(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		log.Printf("recv: %s", message)
+		log.Printf("recv: %s", subscription)
 	}
 }
 
@@ -127,7 +132,7 @@ window.addEventListener("load", function(evt) {
 <form>
 <button id="close">Stop Messages</button>
 <div id="env-fetch">
-<label>Include the environment you want to read from</label>
+<label>Include the subscription you want to read from</label>
 <p><input id="input" type="text" value="staging">
 <button id="send">Send</button>
 </div>
